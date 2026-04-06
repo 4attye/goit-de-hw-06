@@ -25,7 +25,6 @@ raw_df = spark \
     .option("startingOffsets", "latest") \
     .load()
 
-
 schema = StructType([
     StructField("id", IntegerType(), True),
     StructField("temperature", DoubleType(), True),
@@ -36,8 +35,6 @@ schema = StructType([
 df = raw_df.select(
     from_json(col("value").cast("string"), schema).alias("data")
 ).select("data.*")
-
-# test_query = df.writeStream.format("console").start()
 
 aggregated_df = df \
     .withWatermark("timestamp", "10 seconds") \
@@ -54,11 +51,8 @@ alerts_conditions = spark.read \
 
 final_alerts = aggregated_df.crossJoin(alerts_conditions) \
     .filter(
-        # Логіка для температури (використовуємо нові назви temperature_min та temperature_max)
         ((col("temperature_min") == -999) | (col("t_avg") >= col("temperature_min"))) &
         ((col("temperature_max") == -999) | (col("t_avg") <= col("temperature_max"))) &
-        
-        # Логіка для вологості (використовуємо нові назви humidity_min та humidity_max)
         ((col("humidity_min") == -999) | (col("h_avg") >= col("humidity_min"))) &
         ((col("humidity_max") == -999) | (col("h_avg") <= col("humidity_max")))
     ) \
@@ -73,11 +67,11 @@ final_alerts = aggregated_df.crossJoin(alerts_conditions) \
         "alert_timestamp"
     )
 
-# displaying_df = final_alerts.writeStream \
-#     .format("console") \
-#     .outputMode("update") \
-#     .option("truncate", False) \
-#     .start()
+displaying_df = final_alerts.writeStream \
+    .format("console") \
+    .outputMode("update") \
+    .option("truncate", False) \
+    .start()
 
 query = final_alerts \
     .selectExpr("CAST(NULL AS STRING) AS key", "to_json(struct(*)) AS value") \
